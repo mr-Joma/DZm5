@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Category, Product, Review
 
 class CategorySerializer(serializers.ModelSerializer):
-    products_count = serializers.SerializerMethodField()
+    products_count = serializers.SerializerMethodField() # HW 2
     
     class Meta:
         model = Category
@@ -22,7 +22,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         model = Review
         fields = '__all__'
         
-
+# HW 2
 class ProductReviewsSerializer(serializers.ModelSerializer):
 
     reviews = ReviewSerializer(many=True)

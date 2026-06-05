@@ -15,6 +15,7 @@ class Product(models.Model):
     def __str__(self):
         return self.title
     
+    # HW 2
     @property
     def rating(self):
         reviews = self.reviews.all()
@@ -27,7 +28,7 @@ class Product(models.Model):
     
 class Review(models.Model):
     text = models.TextField(null=True, blank=True)
-    stars = models.IntegerField(choices=((i, i) for i in range(1, 6)),
+    stars = models.IntegerField(choices=((i, i) for i in range(1, 6)),# HW 2
                                 default=5)
     product = models.ForeignKey(Product, on_delete=models.CASCADE,
                                 related_name='reviews')
