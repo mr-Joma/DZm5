@@ -14,6 +14,8 @@ class AuthValidateSerializer(UserBaseSerializer):
 
 
 class RegisterValidateSerializer(UserBaseSerializer):
+    phone_number = serializers.CharField(required=False)
+    
     def validate_email(self, email):
         try:
             CustomUser.objects.get(email=email)
