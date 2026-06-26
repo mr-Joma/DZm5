@@ -1,77 +1,104 @@
-from rest_framework.decorators import api_view
+from django.db import transaction
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
-from .serializers import RegisterSerializer, AuthSerializer, ConfirmSerializer
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
+from rest_framework.generics import CreateAPIView
 
-from .models import ConfirmationCode
+from .serializers import (
+    RegisterValidateSerializer,
+    AuthValidateSerializer,
+    ConfirmationSerializer
+)
+from .models import ConfirmationCode, CustomUser
 import random
+import string
 
 
-@api_view(['POST'])
-def registration_api_view(request):
-    serializer = RegisterSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+class AuthorizationAPIView(CreateAPIView):
+    serializer_class = AuthValidateSerializer
 
-    username = serializer.validated_data['username']
-    password = serializer.validated_data['password']
+    def post(self, request):
+        serializer = AuthValidateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-    user = User.objects.create_user(
-        username=username,
-        password=password,
-        is_active=False
-    )
+        user = authenticate(**serializer.validated_data)
 
-    code = str(random.randint(100000, 999999))
+        if user:
+            if not user.is_active:
+                return Response(
+                    status=status.HTTP_401_UNAUTHORIZED,
+                    data={'error': 'User account is not activated yet!'}
+                )
 
-    ConfirmationCode.objects.create(
-        user=user,
-        code=code
-    )
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response(data={'key': token.key})
 
-    return Response(status=status.HTTP_201_CREATED,
-                    data={'user_id': user.id,'code': code})
-
-
-@api_view(['POST'])
-def authorization_api_view(request):
-    serializer = AuthSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    username = serializer.validated_data['username']
-    password = serializer.validated_data['password']
-
-    user = authenticate(
-        username=username,
-        password=password
-    )
-
-    if user is not None:
-        token, _ = Token.objects.get_or_create(user=user)
-
-        return Response(data={'key': token.key})
-
-    return Response(status=status.HTTP_401_UNAUTHORIZED)
+        return Response(
+            status=status.HTTP_401_UNAUTHORIZED,
+            data={'error': 'User credentials are wrong!'}
+        )
 
 
-@api_view(['POST'])
-def confirm_api_view(request):
-    serializer = ConfirmSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
+class RegistrationAPIView(CreateAPIView):
+    serializer_class = RegisterValidateSerializer
 
-    code = serializer.validated_data['code']
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-    try:
-        confirmation = ConfirmationCode.objects.get(code=code)
-    except ConfirmationCode.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
+        email = serializer.validated_data['email']
+        password = serializer.validated_data['password']
 
-    user = confirmation.user
-    user.is_active = True
-    user.save()
+        # Use transaction to ensure data consistency
+        with transaction.atomic():
+            user = CustomUser.objects.create_user(
+                email=email,
+                password=password,
+                is_active=False
+            )
 
-    confirmation.delete()
+            # Create a random 6-digit code
+            code = ''.join(random.choices(string.digits, k=6))
 
-    return Response(data={'message': 'User confirmed'})
+            confirmation_code = ConfirmationCode.objects.create(
+                user=user,
+                code=code
+            )
+
+        return Response(
+            status=status.HTTP_201_CREATED,
+            data={
+                'user_id': user.id,
+                'confirmation_code': code
+            }
+        )
+
+
+class ConfirmUserAPIView(CreateAPIView):
+    serializer_class = ConfirmationSerializer
+
+    def post(self, request):
+        serializer = ConfirmationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user_id = serializer.validated_data['user_id']
+
+        with transaction.atomic():
+            user = CustomUser.objects.get(id=user_id)
+            user.is_active = True
+            user.save()
+
+            token, _ = Token.objects.get_or_create(user=user)
+
+            ConfirmationCode.objects.filter(user=user).delete()
+
+        return Response(
+            status=status.HTTP_200_OK,
+            data={
+                'message': 'User аккаунт успешно активирован',
+                'key': token.key
+            }
+        )
