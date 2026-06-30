@@ -7,7 +7,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 
-from common.permissions import CanEditWithIn15Minutes, IsAnon, IsAuth
+from common.permissions import CanEditWithIn15Minutes, IsAnon, IsAuth, IsModerator
 
 from .models import Category, Product, Review
 from .serializers import (
@@ -73,6 +73,10 @@ class ProductListCreateAPIView(ListCreateAPIView):
     permission_classes = [IsAuth | IsAnon]
 
     def post(self, request, *args, **kwargs):
+        if request.user.is_staff:
+            return Response({"detail": "Moderators cannot create products."},
+                            status=status.HTTP_403_FORBIDDEN)
+            
         serializer = ProductValidateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -98,7 +102,7 @@ class ProductDetailAPIView(RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.select_related('category').all()
     serializer_class = ProductSerializer
     lookup_field = 'id'
-    permission_classes = [IsAnon | (CanEditWithIn15Minutes & IsAuth)]
+    permission_classes = [IsAnon | IsModerator | (CanEditWithIn15Minutes & IsAuth)]
 
     def put(self, request, *args, **kwargs):
         product = self.get_object()
