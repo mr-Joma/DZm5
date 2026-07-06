@@ -70,12 +70,10 @@ class ProductListCreateAPIView(ListCreateAPIView):
     queryset = Product.objects.select_related('category').all()
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
-    permission_classes = [IsAuth | IsAnon]
+    permission_classes = [IsAuth | IsAnon, IsModerator]
 
     def post(self, request, *args, **kwargs):
-        if request.user.is_staff:
-            return Response({"detail": "Moderators cannot create products."},
-                            status=status.HTTP_403_FORBIDDEN)
+        print(f"email: {request.auth.get('email')}")
             
         serializer = ProductValidateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -91,7 +89,8 @@ class ProductListCreateAPIView(ListCreateAPIView):
             title=title,
             description=description,
             price=price,
-            category=category
+            category=category,
+            owner_id=request.auth.get("user_id")
         )
 
         return Response(data=ProductSerializer(product).data,
