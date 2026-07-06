@@ -10,6 +10,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
         token["email"] = user.email
+        token["birthdate"] = (str(user.birthdate) if user.birthdate else None)
         return token
 
 
@@ -24,6 +25,7 @@ class AuthValidateSerializer(UserBaseSerializer):
 
 class RegisterValidateSerializer(UserBaseSerializer):
     phone_number = serializers.CharField(required=False)
+    birthdate = serializers.DateField(required=False)
     
     def validate_email(self, email):
         try:

@@ -8,6 +8,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 
 from common.permissions import CanEditWithIn15Minutes, IsAnon, IsAuth, IsModerator
+from common.validators import validate_age
 
 from .models import Category, Product, Review
 from .serializers import (
@@ -70,11 +71,19 @@ class ProductListCreateAPIView(ListCreateAPIView):
     queryset = Product.objects.select_related('category').all()
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
-    permission_classes = [IsAuth | IsAnon, IsModerator]
+    permission_classes = [IsAuth | IsAnon]
 
     def post(self, request, *args, **kwargs):
         print(f"email: {request.auth.get('email')}")
-            
+        
+        if request.user.is_staff:
+            return Response(
+                {"detail": "Moderators cannot create products."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        validate_age(request.auth)
+        
         serializer = ProductValidateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

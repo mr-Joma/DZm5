@@ -58,6 +58,7 @@ class RegistrationAPIView(CreateAPIView):
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
         phone_number = serializer.validated_data.get('phone_number')
+        birthdate = serializer.validated_data.get('birthdate')
 
         # Use transaction to ensure data consistency
         with transaction.atomic():
@@ -65,6 +66,7 @@ class RegistrationAPIView(CreateAPIView):
                 email=email,
                 password=password,
                 phone_number=phone_number,
+                birthdate=birthdate,
                 is_active=False
             )
 
