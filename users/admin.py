@@ -7,11 +7,26 @@ from django.contrib.auth.admin import UserAdmin
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
-    list_display = ["id", "email", "is_active"]
+    list_display = ["id",
+                    "email",
+                    "first_name", 
+                    "last_name",
+                    "registration_source",
+                    "is_active",]
+    
     list_editable = ["is_active"]
     ordering = ["email"]
 
     fieldsets = (
-        (None, {"fields": ("email", "password", "is_active")}),
+        (None, {"fields": (
+            "email",
+            "password",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "birthdate",
+            "registration_source",
+            "is_active","is_staff",
+        )}),
         ("Important dates", {"fields": ("last_login",)}),
     )
