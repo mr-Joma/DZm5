@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from django.db import transaction
+
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
@@ -104,6 +104,18 @@ class ProductListCreateAPIView(ListCreateAPIView):
 
         return Response(data=ProductSerializer(product).data,
                         status=status.HTTP_201_CREATED)
+    
+    def get(self, request, *args, **kwargs):
+        from django.core.cache import cache
+        cached_data = cache.get("product_list")
+        if cached_data:
+            print("REDIS")
+            return Response(data=cached_data, status=status.HTTP_200_OK)
+        response = super().get(request, *args, **kwargs)
+        if response.data.get("total", 0) > 0:
+            cache.set("product_list", response.data, 300)
+            print("POSTGRES")
+        return response
 
 
 class ProductDetailAPIView(RetrieveUpdateDestroyAPIView):

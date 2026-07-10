@@ -14,10 +14,11 @@ from .serializers import (
     ConfirmationSerializer,
     TokenObtainPairSerializer,
 )
-from .models import ConfirmationCode, CustomUser
+from .models import CustomUser
 import random
 import string
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django.core.cache import cache
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -73,9 +74,10 @@ class RegistrationAPIView(CreateAPIView):
             # Create a random 6-digit code
             code = ''.join(random.choices(string.digits, k=6))
 
-            confirmation_code = ConfirmationCode.objects.create(
-                user=user,
-                code=code
+            cache.set(
+                f"confirmation_code:{user.id}",
+                code,
+                timeout=300
             )
 
         return Response(
@@ -95,6 +97,22 @@ class ConfirmUserAPIView(CreateAPIView):
         serializer.is_valid(raise_exception=True)
 
         user_id = serializer.validated_data['user_id']
+        
+        code = serializer.validated_data["code"]
+
+        redis_code = cache.get(f"confirmation_code:{user_id}")
+
+        if redis_code is None:
+            return Response(
+                {"error": "Confirmation code expired or not found!"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if redis_code != code:
+            return Response(
+                {"error": "Invalid confirmation code!"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         with transaction.atomic():
             user = CustomUser.objects.get(id=user_id)
@@ -103,7 +121,7 @@ class ConfirmUserAPIView(CreateAPIView):
 
             token, _ = Token.objects.get_or_create(user=user)
 
-            ConfirmationCode.objects.filter(user=user).delete()
+            cache.delete(f"confirmation_code:{user.id}")
 
         return Response(
             status=status.HTTP_200_OK,
