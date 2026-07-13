@@ -28,6 +28,8 @@ class AuthorizationAPIView(CreateAPIView):
     serializer_class = AuthValidateSerializer
 
     def post(self, request):
+        from users.tasks import add
+        add.delay(2, 2)
         serializer = AuthValidateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -79,6 +81,9 @@ class RegistrationAPIView(CreateAPIView):
                 code,
                 timeout=300
             )
+            
+            from users.tasks import send_email
+            send_email.delay(code, email)
 
         return Response(
             status=status.HTTP_201_CREATED,
