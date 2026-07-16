@@ -1,15 +1,21 @@
-from csv import Error
+# from csv import Error
 
 from celery import shared_task
 from time import sleep
 from django.conf import settings
 
+# @shared_task
+# def add(x, y):
+#     print("Отчет...")
+#     sleep(20)
+#     print("Завершено")
+#     return x + y
+
+#HW 6
 @shared_task
-def add(x, y):
-    print("Отчет...")
-    sleep(20)
-    print("Завершено")
-    return x + y
+def login_log(email):
+    print(f"Пользователь {email} успешно вошёл в систему")
+    return "OK"
 
 
 @shared_task
@@ -25,8 +31,20 @@ def send_email(code, email):
     return "OK"
 
 
+#HW 6
 @shared_task
-def delete_unactive_users():
+def print_statistics():
     from users.models import CustomUser
-    deleted = CustomUser.objects.filter(is_active=False).delete()
-    return f"Удалено: {deleted}"
+
+    total_users = CustomUser.objects.count()
+    print(f"Статистика: всего пользователей - {total_users}")
+
+    return total_users
+
+
+# @shared_task
+# def delete_unactive_users():
+#     from users.models import CustomUser
+#     deleted = CustomUser.objects.filter(is_active=False).delete()
+#     return f"Удалено: {deleted}"
+

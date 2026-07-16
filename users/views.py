@@ -28,14 +28,19 @@ class AuthorizationAPIView(CreateAPIView):
     serializer_class = AuthValidateSerializer
 
     def post(self, request):
-        from users.tasks import add
-        add.delay(2, 2)
+        # from users.tasks import add
+        # add.delay(2, 2)
+        
         serializer = AuthValidateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         user = authenticate(**serializer.validated_data)
 
         if user:
+            from users.tasks import login_log
+
+            login_log.delay(user.email)
+            
             if not user.is_active:
                 return Response(
                     status=status.HTTP_401_UNAUTHORIZED,
