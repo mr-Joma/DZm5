@@ -1,20 +1,73 @@
-version: '3'
-services: 
-  shop_api:
+services:
+  web:
+    container_name: shop_web
     build:
       context: .
-    command: sh -c "python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
     ports:
-      - "8000:8000" # host:container 
-    depends_on:
-      - shop_data
-  shop_data: 
-    image: 'postgres:14'
-    environment:
-      POSTGRES_DB: shop_api_test
-      POSTGRES_USER: shop_api_test_user
-      POSTGRES_PASSWORD: 123456
+      - "8001:8000"
+    env_file:
+      .env
     volumes:
-      - 'data:/var/lib/postgresql/data'
+      - .:/app
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    container_name: shop_postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  redis:
+    container_name: shop_redis
+    image: redis:7
+    volumes:
+      - redis-data:/data
+
+  celery_worker:
+    container_name: shop_worker
+    build:
+      context: .
+    command: celery -A shop_api worker --loglevel=INFO
+    depends_on:
+     - redis
+    env_file:
+      .env
+    volumes:
+      - .:/app
+
+  celery_beat:
+    container_name: shop_beat
+    build:
+      context: .
+    command: celery -A shop_api beat --loglevel=INFO
+    depends_on:
+     - redis
+    env_file:
+      .env
+    volumes:
+      - .:/app
+
+  celery_flower:
+    container_name: shop_flower
+    build:
+      context: .
+    command: celery -A shop_api flower --port=5555
+    ports:
+      - "5556:5555"
+    depends_on:
+     - redis
+    env_file:
+      .env
+    volumes:
+      - .:/app
+  
+
 volumes:
-  data:
+  db-data:
+  redis-data:
